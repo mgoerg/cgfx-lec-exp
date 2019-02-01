@@ -18,13 +18,13 @@ class ShaderProgram {
     public: 
         GLuint ID;
 
-		static GLuint shader(const int shaderType, const std::string filename, bool &success);
+		static GLuint shader(const int shaderType, const std::string &filename, bool &success);
 
         ShaderProgram() : ID(-1) {};
         ShaderProgram(bool &success, 
-			const std::string vertexShaderPath, 
-			const std::string fragmentShaderPath, 
-			const std::string geometryShaderPath ="",
+			const std::string &vertexShaderPath, 
+			const std::string &fragmentShaderPath, 
+			const std::string &geometryShaderPath ="",
 			bool printVariables=false);
 		~ShaderProgram();
 

@@ -12,7 +12,7 @@
 
 // Initialize shader from file. 
 // Shader still needs to be attached and linked after this!
-GLuint ShaderProgram::shader(const int shaderType, const std::string filename, bool &success)
+GLuint ShaderProgram::shader(const int shaderType, const std::string &filename, bool &success)
 {
 	// Read Shader from file
 	int shaderID = glCreateShader(shaderType);
@@ -216,11 +216,11 @@ void ShaderProgram::setUniform(std::string name, const GLfloat* values, GLsizei 
 
 
 ShaderProgram::ShaderProgram(bool& success, \
-	const std::string vertexShaderPath, \
-	const std::string fragmentShaderPath, \
-	const std::string geometryShaderPath /*=""*/,
+	const std::string &vertexShaderPath, \
+	const std::string &fragmentShaderPath, \
+	const std::string &geometryShaderPath /*=""*/,
 	bool printVariables /*=true*/) {
-   	ID = glCreateProgram();
+   	this->ID = glCreateProgram();
 
     int vertexShader = shader(GL_VERTEX_SHADER, vertexShaderPath, success);
 	if (!success) return;
@@ -230,7 +230,7 @@ ShaderProgram::ShaderProgram(bool& success, \
 	glAttachShader( ID, fragmentShader );
 
 	int geometryShader = -1;
-    if (geometryShaderPath != "") {
+    if (geometryShaderPath.compare("") != 0) {
         geometryShader = shader(GL_GEOMETRY_SHADER, geometryShaderPath, success);
     	glAttachShader( ID, geometryShader );
         if (!success) return;
@@ -247,10 +247,9 @@ ShaderProgram::ShaderProgram(bool& success, \
 		glDetachShader( ID, geometryShader );
 		glDeleteShader( geometryShader );
 	}
-	
 
 	//Check for errors
-	GLint programSuccess = GL_TRUE;
+	GLint programSuccess = GL_FALSE;
 	glGetProgramiv( ID, GL_LINK_STATUS, &programSuccess );
 	if( programSuccess != GL_TRUE )
 	{
@@ -260,10 +259,14 @@ ShaderProgram::ShaderProgram(bool& success, \
 	}
 
     initAttributesUniforms(printVariables);
+	std::cout << "Shader Program " << ID << " compiled and linked successfully." << std::endl;
 }
 
 ShaderProgram::~ShaderProgram() {
-	glDeleteProgram( ID );
+	if (ID != 0) {
+		glDeleteProgram( ID );
+		std::cout << "Shader Program destroyed.";
+	}
 }
 
 void ShaderProgram::use() {

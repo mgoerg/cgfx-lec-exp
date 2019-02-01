@@ -17,6 +17,17 @@
 #include <sstream>
 #include <iostream>
 #include <vector>
+#include <memory>
+
+namespace Renderer {
+
+class Mesh;
+
+typedef unsigned int MeshID;
+
+extern std::map<MeshID, std::shared_ptr<Mesh>> meshes;
+
+
 
 struct Vertex {
     glm::vec3 position;
@@ -36,11 +47,7 @@ struct Vertex {
 
 class Mesh {
 public:
-    /*  Mesh Data  */
-    std::vector<Vertex> vertices;
-    std::vector<unsigned int> indices;
-    //std::vector<Texture> textures;
-    unsigned int VAO;
+    unsigned int id = -1;
 
     bool needUpdate = true;
 
@@ -53,22 +60,41 @@ public:
         //this->textures = textures;
     }
     ~Mesh() {
+        std::cout << "MESH DESTROYED" << std::endl;
+        // TODO
         glDeleteBuffers(1, &VBO);
         glDeleteBuffers(1, &EBO);
         glDeleteVertexArrays(1, &VAO);
     }
 
-    // initialize buffer objects/arrays
+    unsigned int indexCount() { return this->indices.size(); }
+    unsigned int vertexCount() { return this->vertices.size(); }
+
+    // initialize buffer objects/arrays. Needs to be called before prepareDraw whenever vertices or indices were changed.
     void setup(ShaderProgram& shaderProgram);
 
-    void draw(ShaderProgram& shaderProgram);
+    // bind gl buffers needed to draw the mesh. Needs to be called before draw if other buffers are bound.
+    void prepareDraw(ShaderProgram& shaderProgram);
 
+    // actual draw call.
+    void draw();
 
-private:
-    /*  Render data  */
-    unsigned int VBO, EBO;
+    private: 
+        /*  Mesh Data  */
+        std::vector<Vertex> vertices;
+        std::vector<unsigned int> indices;
+        //std::vector<Texture> textures;
+        unsigned int VAO;
+        unsigned int VBO, EBO;
 
 };
+
+
+// Mesh ids start at 1. ID 0 is reserved.
+MeshID newMesh(std::vector<Vertex> &vertices, std::vector<unsigned int> &indices);
+void updateMesh(MeshID id, std::vector<Vertex> &vertices, std::vector<unsigned int> &indices);
+void deleteMesh(MeshID meshID);
+std::shared_ptr<Mesh> getMesh(unsigned int id);
 
 
 
@@ -102,6 +128,8 @@ Mesh createMesh(std::vector<glm::vec3> &vertexPoints, \
 	// gTetraMesh = createMesh(vertexPoints, indices, color);
 
 
+
+} // namespace Renderer
 
 #endif // MESH_H
 

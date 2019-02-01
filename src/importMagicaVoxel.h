@@ -16,7 +16,9 @@ int id( int a, int b, int c, int d );
 // RGBA
 //================
 struct RGBA {
-    unsigned char r, g, b, a;
+    //unsigned char a, g, b, a;
+    unsigned char a, r, g, b;
+//    unsigned char b, r, g, a;
 };
 
 
@@ -101,7 +103,7 @@ public :
         std::ifstream file;
         file.open(path, std::ios::in | std::ios::binary);
         if (!file.is_open()) {
-            Error( "failed to open file" );
+            Error( (std::string("failed to open file") + path).c_str() );
             return false;
         }        
         // read file
@@ -127,38 +129,15 @@ private :
     
 private :
     bool ReadModelLoaderFile( std::ifstream &file );    
-    void ReadChunk( std::ifstream &file, chunk_t &chunk ) {
-        // read chunk
-        file.read((char*) &chunk.id, sizeof(int));
-        file.read((char*) &chunk.contentSize, sizeof(int));
-        file.read((char*) &chunk.childrenSize, sizeof(int));
-
-        int pos = file.tellg();
+    void ReadChunk( std::ifstream &file, chunk_t &chunk );
         
-        // end of chunk : used for skipping the whole chunk
-        chunk.end = pos + chunk.contentSize + chunk.childrenSize;
-        
-        // print chunk info
-        // const char *c = ( const char * )( &chunk.id );
-        // printf( "[Log] VoxelModelLoader :: Chunk : %c%c%c%c : %d %d\n",
-        //        c[0], c[1], c[2], c[3],
-        //        chunk.contentSize, chunk.childrenSize
-        //        );
-    }
-    
-    int ReadInt( FILE *fp ) {
-        int v = 0;
-        fread( &v, 4, 1, fp );
-        return v;
-    }
-    
     void Error( const char *info ) const {
         std::cout << "[Error] VoxelModelLoader :: " << info << "\n";
     }
 };
 
 
-std::vector<TileMap3d*> makeTileMaps(const char* path, bool makeMeshes, bool &success);
+std::vector<TileMap3d*> makeTileMapsFromFile(const char* path, bool makeMeshes, bool &success);
 
 TileMap3d* makeTileMapSingle(const MV::Model &model, bool isCustomPalette, const MV::RGBA* palette, bool makeMesh);
 

@@ -1,6 +1,7 @@
 
 #include "importMagicaVoxel.h"
 #include <stdexcept>
+#include "utils.h"
 
 
 int MV::id( int a, int b, int c, int d ) {
@@ -25,6 +26,27 @@ glm::vec4 MV::rgbaToColorVec4(MV::RGBA rgba) {
 
 
 
+void MV::ModelLoader::ReadChunk( std::ifstream &file, chunk_t &chunk ) {
+    // read chunk
+    file.read((char*) &chunk.id, sizeof(int));
+    file.read((char*) &chunk.contentSize, sizeof(int));
+    file.read((char*) &chunk.childrenSize, sizeof(int));
+
+    int pos = file.tellg();
+    
+    // end of chunk : used for skipping the whole chunk
+    chunk.end = pos + chunk.contentSize + chunk.childrenSize;
+    
+    // print chunk info
+    // const char *c = ( const char * )( &chunk.id );
+    // printf( "[Log] VoxelModelLoader :: Chunk : %c%c%c%c : %d %d\n",
+    //        c[0], c[1], c[2], c[3],
+    //        chunk.contentSize, chunk.childrenSize
+    //        );
+}
+
+
+
 bool MV::ModelLoader::ReadModelLoaderFile( std::ifstream &file ) {
     const int MV_VERSION = 150;
     
@@ -33,7 +55,7 @@ bool MV::ModelLoader::ReadModelLoaderFile( std::ifstream &file ) {
     const int ID_SIZE = id( 'S', 'I', 'Z', 'E' );
     const int ID_XYZI = id( 'X', 'Y', 'Z', 'I' );
     const int ID_RGBA = id( 'R', 'G', 'B', 'A' );
-    const int ID_PACK = id( 'P', 'A', 'C', 'K' );
+    //const int ID_PACK = id( 'P', 'A', 'C', 'K' );
     
     // magic number
     int magic;
@@ -101,7 +123,7 @@ bool MV::ModelLoader::ReadModelLoaderFile( std::ifstream &file ) {
 
             // NOTICE : skip the last reserved color
             RGBA reserved;
-            file.read((char*) &reserved, 4);
+            file.read((char*) &reserved, sizeof(RGBA));
         }
 
         // skip unread bytes of current chunk or the whole unused chunk
@@ -120,31 +142,36 @@ bool MV::ModelLoader::ReadModelLoaderFile( std::ifstream &file ) {
 
 TileMap3d* MV::makeTileMapSingle(const MV::Model &model, bool isCustomPalette, const MV::RGBA* palette, bool makeMesh) {
     std::vector<Tile> pal;
+    Tile t;
+    t.color = glm::vec4(0.0, 0.0, 0.0, 1.0);
+    pal.push_back(t);
 	if (isCustomPalette) {
-		for (int i = 0; i < 256; i++) {
+		for (int i = 0; i < 255; i++) {
 			Tile tile = {MV::rgbaToColorVec4(palette[i])};
 			pal.push_back(tile);
 		}
 	} else {
-		for (int i = 0; i < 256; i++) {
+		for (int i = 0; i < 255; i++) {
 			Tile tile = {MV::intToColorVec4(MV::default_palette[i])};
 			pal.push_back(tile);
 		}
 	}
+
 	TileMap3d* tilemap = new TileMap3d(pal, model.sizex, model.sizey, model.sizez);
+
 	for (int i = 0; i < model.numVoxels; i++) {
 		MV::Voxel v = model.voxels[i];
 		tilemap->set(v.x, v.y, v.z, v.colorIndex);
 	}
     if (makeMesh) {
-        tilemap->makeMesh();
+        tilemap->updateMesh();
     }
     return tilemap;
 }
 
 
 
-std::vector<TileMap3d*> MV::makeTileMaps(const char* path, bool makeMeshes, bool &success) {
+std::vector<TileMap3d*> MV::makeTileMapsFromFile(const char* path, bool makeMeshes, bool &success) {
     MV::ModelLoader modelLoader;
     success = modelLoader.loadModel(path);
     if (!success) {

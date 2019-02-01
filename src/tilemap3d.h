@@ -10,6 +10,7 @@
 #include <glm/gtc/type_ptr.hpp>  // glm::value_ptr()
 
 #include <stdexcept>
+#include <memory>
 
 #include "shader.h"
 #include "mesh.h"
@@ -21,13 +22,13 @@ struct Tile {
 
 typedef std::vector<Tile> Palette;
 
-
-// tile index 0 is reserved. palette value must be provided but is ignored for mesh generation.
+// tile palette at index 0 is reserved. palette value at 0 must be set but is ignored for mesh generation.
 class TileMap3d {
     public:
         const int xSize, ySize, zSize;
         Palette palette;
-        Mesh* mesh;
+        Renderer::MeshID meshID = 0;
+        bool meshOutdated = true;
         bool showBoundaries = true;
 
         //TileMap3d() : xSize(0), ySize(0), zSize(0), content(0) {};
@@ -48,8 +49,8 @@ class TileMap3d {
         void set(int x, int y, int z, unsigned int value);
         void set(glm::ivec3 k, unsigned int v);
 
-        void makeMesh();
-        void draw(ShaderProgram& shaderProgram);
+        void updateMesh();
+        //void draw(ShaderProgram& shaderProgram);
 
         glm::vec3 center();
 

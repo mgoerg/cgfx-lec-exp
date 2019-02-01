@@ -2,6 +2,7 @@
 
 #include "tilemap3d.h"
 
+#include "assert.h"
 #include <vector>
 
 
@@ -50,6 +51,7 @@ int TileMap3d::index(int x, int y, int z) {
     if (y < 0) y += ySize;
     z = z % zSize;
     if (z < 0) z += zSize;
+    assert(x * ySize * zSize + y * zSize + z < xSize * ySize * zSize);
     return x * ySize * zSize + y * zSize + z;
 }
 unsigned int TileMap3d::get(int x, int y, int z) {
@@ -68,6 +70,7 @@ Tile TileMap3d::getTile(glm::ivec3 k) {
 }
 
 void TileMap3d::set(int x, int y, int z, unsigned int value) {
+    meshOutdated = true;
     if (value >= palette.size()) {
         throw std::invalid_argument( "Tile index " + std::to_string(value) + " out of range: 0 - " + std::to_string(palette.size()) );
     }
@@ -79,9 +82,12 @@ void TileMap3d::set(glm::ivec3 k, unsigned int v) {
 }
 
 
-void TileMap3d::makeMesh()
+void TileMap3d::updateMesh()
 {
-    std::vector<Vertex> vertices;
+    if (!meshOutdated) {
+        return;
+    }
+    std::vector<Renderer::Vertex> vertices;
     std::vector <unsigned int> indices;
     unsigned int index = 0;
 
@@ -105,16 +111,16 @@ void TileMap3d::makeMesh()
                     glm::vec3 center = {x + 0.5, y + 0.5, z + 0.5};
 
                     auto add_face = [&](glm::vec3 normal, glm::vec3 tangent, glm::vec3 bitangent) { 
-                        Vertex v0 = {
+                        Renderer::Vertex v0 = {
                             center + 0.5f * normal + 0.5f * tangent + 0.5f * bitangent, normal, color
                         };
-                        Vertex v1 = {
+                        Renderer::Vertex v1 = {
                             center + 0.5f * normal - 0.5f * tangent + 0.5f * bitangent, normal, color
                         };
-                        Vertex v2 = {
+                        Renderer::Vertex v2 = {
                             center + 0.5f * normal - 0.5f * tangent - 0.5f * bitangent, normal, color
                         };
-                        Vertex v3 = {
+                        Renderer::Vertex v3 = {
                             center + 0.5f * normal + 0.5f * tangent - 0.5f * bitangent, normal, color
                         };
 
@@ -187,15 +193,29 @@ void TileMap3d::makeMesh()
         }
     }
 
-    mesh = new Mesh(vertices, indices);
+    // TODO
+    std::cout << "Mesh created with " << vertices.size() << " vertices, " << indices.size() << " indices." << std::endl;
+
+
+    if (meshID == 0) {
+        meshID = Renderer::newMesh(vertices, indices);
+    } else {
+        Renderer::updateMesh(meshID, vertices, indices);
+    }
+
+    meshOutdated = false;
+
 }
 
 
-void TileMap3d::draw(ShaderProgram& shaderProgram) { 
-    if (mesh->needUpdate)
-        makeMesh();
-    mesh->draw(shaderProgram);
-}
+// void TileMap3d::draw(Renderer::Renderer renderer) { 
+//     if (meshOutdated)
+//         updateMesh();
+    
+//     // gRenderer.draw()
+    
+//     // mesh->draw(shaderProgram);
+// }
 
 
 glm::vec3 TileMap3d::center() {
@@ -203,13 +223,21 @@ glm::vec3 TileMap3d::center() {
 }
 
 
-TileMap3d* createExampleTileMap(std::vector<Tile> palette, int spacing) {
+TileMap3d* createPaletteTileMap(std::vector<Tile> palette, int spacing, int width=-1) {
     int s = spacing + 1;
-    TileMap3d* ret = new TileMap3d(palette, palette.size() * (s), 1, 1);
-    for (int i = 0; i < ret->xSize; i++) {
-        ret->set(i * s, 0, 0, i);
+    if (width > 0) {
+        TileMap3d* ret = new TileMap3d(palette, width, (palette.size() * s) / width + 1, 1);
+        for (unsigned int i = 0; i < palette.size(); i++) {
+            ret->set( (i * s) % width, (i*s) / width, 0, i );
+        }
+        return ret;
+    } else {
+        TileMap3d* ret = new TileMap3d(palette, palette.size() * (s), 1, 1);
+        for (unsigned int i = 0; i < palette.size(); i++) {
+            ret->set(i * s, 0, 0, i);
+        }
+        return ret;
     }
-    return ret;
 }
 
 

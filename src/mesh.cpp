@@ -1,10 +1,21 @@
 
 #include "mesh.h"
 
+std::map<Renderer::MeshID, std::shared_ptr<Renderer::Mesh>> Renderer::meshes;
 
 
-void Mesh::setup(ShaderProgram&shaderProgram)
+void Renderer::Mesh::prepareDraw(ShaderProgram& shaderProgram) {
+    if (needUpdate) setup(shaderProgram);
+
+    glBindVertexArray(this->VAO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->EBO);
+}
+
+
+void Renderer::Mesh::setup(ShaderProgram &shaderProgram)
 {
+    if (!needUpdate) return;
+
     // create buffers/arrays
     if (VAO == (unsigned int)-1) {
         glGenVertexArrays(1, &VAO);
@@ -12,20 +23,20 @@ void Mesh::setup(ShaderProgram&shaderProgram)
         glGenBuffers(1, &EBO);
     }
 
-
     glBindVertexArray(VAO);
     // load data into buffers
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), &vertices[0], GL_STATIC_DRAW);  
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), vertices.data(), GL_STATIC_DRAW);  
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), &indices[0], GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
 
     // set the vertex attribute pointers
     // vertex Positions
     GLuint positionAttribute = shaderProgram.attributeID("a_vertexPosition");
     glEnableVertexAttribArray(positionAttribute);	
-    glVertexAttribPointer(positionAttribute, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
+    glVertexAttribPointer(positionAttribute, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, position));
+
     // vertex normals
     GLuint normalAttribute = shaderProgram.attributeID("a_vertexNormal");
     glEnableVertexAttribArray(normalAttribute);	
@@ -36,16 +47,6 @@ void Mesh::setup(ShaderProgram&shaderProgram)
     glEnableVertexAttribArray(colorAttribute);	
     glVertexAttribPointer(colorAttribute, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, color));
 
-    // vertex texture coords
-    //glEnableVertexAttribArray(2);	
-    //glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, TexCoords));
-    // vertex tangent
-    //glEnableVertexAttribArray(3);
-    //glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Tangent));
-    // vertex bitangent
-    //glEnableVertexAttribArray(4);
-    //glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Bitangent));
-
     glBindVertexArray(0);
 
     needUpdate = false;
@@ -53,46 +54,38 @@ void Mesh::setup(ShaderProgram&shaderProgram)
 
 
 
-void Mesh::draw(ShaderProgram& shader)
-{
-    if (needUpdate) {
-        this->setup(shader);
+Renderer::MeshID Renderer::newMesh(std::vector<Vertex> &vertices, std::vector<unsigned int> &indices) {
+    unsigned int i = 1;
+    while (meshes.find(i) != meshes.end()) {
+        i++;
     }
-    // bind appropriate textures
-    // unsigned int diffuseNr  = 1;
-    // unsigned int specularNr = 1;
-    // unsigned int normalNr   = 1;
-    // unsigned int heightNr   = 1;
-    /*for(unsigned int i = 0; i < textures.size(); i++)
-    {
-        glActiveTexture(GL_TEXTURE0 + i); // active proper texture unit before binding
-        // retrieve texture number (the N in diffuse_textureN)
-        string number;
-        string name = textures[i].type;
-        if(name == "texture_diffuse")
-            number = std::to_string(diffuseNr++);
-        else if(name == "texture_specular")
-            number = std::to_string(specularNr++); // transfer unsigned int to stream
-        else if(name == "texture_normal")
-            number = std::to_string(normalNr++); // transfer unsigned int to stream
-            else if(name == "texture_height")
-            number = std::to_string(heightNr++); // transfer unsigned int to stream
 
-                                                    // now set the sampler to the correct texture unit
-        glUniform1i(glGetUniformLocation(shader.ID, (name + number).c_str()), i);
-        // and finally bind the texture
-        glBindTexture(GL_TEXTURE_2D, textures[i].id);
-    }*/
-    
+    meshes[i] = std::make_shared<Mesh>(vertices, indices);
+    meshes[i]->id = i;
+    return i;
+}
 
-    // draw mesh
-    glBindVertexArray(VAO);
+void Renderer::updateMesh(MeshID id, std::vector<Vertex> &vertices, std::vector<unsigned int> &indices) {
+    assert (meshes.find(id) != meshes.end());
+    meshes[id] = std::make_shared<Mesh>(vertices, indices);
+    meshes[id]->id = id;
+}
+
+void Renderer::deleteMesh(Renderer::MeshID id) {
+    meshes.erase(id);
+}
+
+std::shared_ptr<Renderer::Mesh> Renderer::getMesh(unsigned int id) {
+    return meshes[id];
+}
+
+void Renderer::Mesh::draw()
+{
     glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
-    glBindVertexArray(0);
 }
 
 
-Mesh createMesh(std::vector<glm::vec3> &vertexPoints, std::vector<std::vector<unsigned int>> &indices, glm::vec4 color) {
+Renderer::Mesh Renderer::createMesh(std::vector<glm::vec3> &vertexPoints, std::vector<std::vector<unsigned int>> &indices, glm::vec4 color) {
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indicesRet;
     int index = 0;
@@ -132,6 +125,6 @@ Mesh createMesh(std::vector<glm::vec3> &vertexPoints, std::vector<std::vector<un
         }
     }
 
-    return Mesh(vertices, indicesRet);
+    return Renderer::Mesh(vertices, indicesRet);
 }
 

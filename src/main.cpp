@@ -9,6 +9,7 @@
 #include <string>
 #include <iostream>
 #include <cmath>
+#include <memory>
 
 
 #include <glm/vec3.hpp>
@@ -24,6 +25,10 @@
 #include "utils.h"
 #include "camera.h"
 
+#include "game.h"
+#include "renderer.h"
+#include "mesh.h"
+
 //Screen dimension constants
 const int SCREEN_WIDTH = 640;
 const int SCREEN_HEIGHT = 480;
@@ -32,8 +37,8 @@ const int SCREEN_HEIGHT = 480;
 //Starts up SDL, creates window, and initializes OpenGL
 bool init();
 
-//Initializes rendering program and clear color
-bool initGL();
+//Initialize renderable content
+bool initScene();
 
 //Input handler
 // void handleKeys( unsigned char key, int x, int y );
@@ -47,20 +52,24 @@ void renderFrame();
 //Frees media and shuts down SDL
 void closeProgram();
 
-//Shader loading utility programs
+//Shader loading utility
 void printProgramLog( GLuint program );
 
-SDL_Window* gWindow = NULL;
+
+SDL_Window* gWindow = nullptr;
 SDL_GLContext gContext;
 bool gRenderQuad = true;
 
 std::string gVertexShaderFile = "data/shader/vertex.glsl";
 std::string gFragmentShaderFile = "data/shader/fragment.glsl";
 const char* gModelFile = "data/model/teapot.vox";
+const char* gCastleTileMapFile = "data/model/mycastle.vox";
+
 
 //Mesh gTetraMesh;
 TileMap3d* gTileMap;
 TileMap3d* gModelTileMap;
+std::vector<TileMap3d*> gCastleTiles;
 
 float gCameraA = 0;
 float gCameraB = 0;
@@ -69,12 +78,7 @@ glm::vec3 gCameraPosition;
 glm::vec3 gCameraTargetPosition = {0, 0, 0};
 
 bool gGameIsRunning = true;
-ShaderProgram* gShaderProgram = NULL;
-
-MV::Model model;
-
-unsigned int VBO, VAO;
-
+std::shared_ptr<Renderer::Renderer> gRenderer = nullptr;
 
 Camera gCamera;
 
@@ -90,7 +94,7 @@ bool init()
 	}
 
 	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MAJOR_VERSION, 4 );
-	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, 5 );
+	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, 3 );
 	SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE );
 
 	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
@@ -98,7 +102,7 @@ bool init()
 
 	//Create window
 	gWindow = SDL_CreateWindow( "Title", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN );
-	if( gWindow == NULL )
+	if( gWindow == nullptr )
 	{
 		std::cout << "Window could not be created! SDL Error: " << SDL_GetError() << std::endl;
 		return false;
@@ -106,14 +110,14 @@ bool init()
 
 	//Create context
 	gContext = SDL_GL_CreateContext( gWindow );
-	if( gContext == NULL )
+	if( gContext == nullptr )
 	{
 		std::cout << "OpenGL context could not be created! SDL Error: " << SDL_GetError() << std::endl;
 		return false;
 	}
 
 	//Initialize GLEW
-	glewExperimental = GL_TRUE; 
+	glewExperimental = GL_TRUE;
 	GLenum glewError = glewInit();
 	if( glewError != GLEW_OK )
 	{
@@ -121,39 +125,54 @@ bool init()
 		return false;
 	}
 
+
+	const GLubyte* renderer = glGetString( GL_RENDERER ); /* get renderer string */
+	const GLubyte* version = glGetString( GL_VERSION );	 /* version as a string */
+	printf( "Renderer: %s\n", renderer );
+	printf( "OpenGL version supported %s\n", version );
+
+
 	//Use Vsync
-	if( SDL_GL_SetSwapInterval( 1 ) < 0 )
+	if(SDL_GL_SetSwapInterval( 1 ) < 0)
 	{
 		std::cout << "Warning: Unable to set VSync! SDL Error: " << SDL_GetError();
 	}
 
-	//Initialize OpenGL
-	if( !initGL() )
-	{
-		std::cout << "Unable to configure OpenGL!" << std::endl;
-		return false;
-	}
+	// int unibl;
+	// glGetIntegerv(GL_MAX_UNIFORM_BLOCK_SIZE, &unibl);
+	// std::cout << "Max uniform blocks " << unibl;
+
+	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_CULL_FACE);
+	glClearColor( 0.f, 0.0f, 0.1f, 1.f );
+	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+	
+	return true;
+}
 
 
+bool initScene() 
+{
 	bool success;
-	gShaderProgram = new ShaderProgram(success, gVertexShaderFile, gFragmentShaderFile, "", true);
-	if (!success) {
-		std::cout << "Could not initialize Shaders!" << std::endl;
-		return false;
-	}
 
-	gShaderProgram->use();
-
-	gModelTileMap = MV::makeTileMaps(gModelFile, true, success)[0];
+	auto tileMaps = MV::makeTileMapsFromFile(gModelFile, true, success);
+	gModelTileMap = tileMaps[0];
 	if (!success) {
 		return false;
 	}
-	gModelTileMap->mesh->setup(*gShaderProgram);
+
+
+	gCastleTiles = MV::makeTileMapsFromFile(gCastleTileMapFile, true, success);
+	if (!success) {
+		return false;
+	}
 
 	gCamera.fov = glm::radians(45.f);
 	gCamera.near = 0.1f;
 	gCamera.far = 10000;
 	gCamera.eyePosition = {0, 0, 0};
+
 
 	Palette palette = {
 		{glm::vec4()}, 
@@ -169,16 +188,9 @@ bool init()
 	gTileMap->set(0, 2, 0, 2);
 	gTileMap->set(0, 0, 1, 3);
 	gTileMap->set(0, 0, 2, 3);
-	// gTileMap->set(1, 1, 1, 1);
-	// gTileMap->set(1, 1, 2, 2);
-	// gTileMap->set(1, 2, 2, 1);
-	// gTileMap->set(0, 2, 2, 2);
-	// gTileMap->set(3, 2, 2, 3);
-	//gTileMap->set(0, 0, 0, 3);
-	//gTileMap->set(0, 1, 0, 3);
-	gTileMap->makeMesh();
+	gTileMap->updateMesh();
 
-	gTileMap->mesh->setup(*gShaderProgram);
+
 
 
 	struct LightSource
@@ -193,9 +205,9 @@ bool init()
 		float _pad1;
 	};
 
-	struct LightData 
+	struct LightData
 	{
-		int num_lights = 3;
+		int num_lights = 1;
 		float _pad1;
 		float _pad2;
 		float _pad3;
@@ -207,9 +219,9 @@ bool init()
 
 	LightSource ambient;
 	ambient.flags |= 1;
-	ambient.color[0] = 0.3;
-	ambient.color[1] = 0.3;
-	ambient.color[2] = 0.3;
+	ambient.color[0] = 1.0;
+	ambient.color[1] = 1.0;
+	ambient.color[2] = 1.0;
 
 	LightSource pointLight;
 	pointLight.intensity = 50;
@@ -226,28 +238,28 @@ bool init()
 	lights.light3 = pointLight;
 
 
-	GLuint uniformBlockIndex = glGetUniformBlockIndex( gShaderProgram->ID, "LightBlock");
+	// GLuint uniformBlockIndex = glGetUniformBlockIndex( gRenderer.shaderProgram.ID, "LightBlock");
 
-	GLint blockSize;
-	glGetActiveUniformBlockiv(gShaderProgram->ID, uniformBlockIndex, GL_UNIFORM_BLOCK_DATA_SIZE, &blockSize);
+	// GLint blockSize;
+	// glGetActiveUniformBlockiv(gRenderer.shaderProgram.ID, uniformBlockIndex, GL_UNIFORM_BLOCK_DATA_SIZE, &blockSize);
 
-	int blockbinding = 1;
-	glUniformBlockBinding(gShaderProgram->ID, uniformBlockIndex, blockbinding );
+	// int blockbinding = 1;
+	// glUniformBlockBinding(gRenderer.shaderProgram.ID, uniformBlockIndex, blockbinding );
 
-	GLuint ubo;
-	glGenBuffers(1, &ubo);
-	glBindBuffer(GL_UNIFORM_BUFFER, ubo);
+	//GLuint ubo;
+	//glGenBuffers(1, &ubo);
+	//std::cout << blockSize;
 
-	glBufferData(GL_UNIFORM_BUFFER, 
-		blockSize, 
-		&lights, 
-		GL_STATIC_DRAW);
+
+	// glBindBuffer(GL_UNIFORM_BUFFER, gRenderer.getBuffer("LightBlock").buf);
+
+	// glBufferData(GL_UNIFORM_BUFFER, 
+	// 	sizeof(LightData), //blockSize, 
+	// 	&lights, 
+	// 	GL_STATIC_DRAW);
 	
-	glBindBufferRange(GL_UNIFORM_BUFFER, blockbinding, ubo, 0, blockSize);
-	//glBindBufferBase(GL_UNIFORM_BUFFER, uniformBlockIndex, ubo);
+	//glBindBufferRange(GL_UNIFORM_BUFFER, blockbinding, ubo, 0, blockSize);
 	//glBindBuffer(GL_UNIFORM_BUFFER, 0);
-
-	gShaderProgram->setUniform("u_useLighting", GL_TRUE);
 
 
 	// const int num = 25;
@@ -256,36 +268,12 @@ bool init()
 	// for (int i = 0; i < num; i++) {
 	// 	indices[i] = i;
 	// }
- 	// glGetActiveUniformsiv( gShaderProgram->ID, num, indices, GL_UNIFORM_OFFSET, &foo[0]);
+ 	// glGetActiveUniformsiv( gRenderer.shaderProgram.ID, num, indices, GL_UNIFORM_OFFSET, &foo[0]);
 	// for (int i = 0; i < num; i++) {
 	// 	std::cout << i << ": " << foo[i] << std::endl;
 	// }
 
 	return true;
-}
-
-
-bool initGL()
-{
-	//Success flag
-	bool success = true;
-
-	const GLubyte* renderer = glGetString( GL_RENDERER ); /* get renderer string */
-	const GLubyte* version = glGetString( GL_VERSION );	 /* version as a string */
-	printf( "Renderer: %s\n", renderer );
-	printf( "OpenGL version supported %s\n", version );
-	// int unibl;
-	// glGetIntegerv(GL_MAX_UNIFORM_BLOCK_SIZE, &unibl);
-	// std::cout << "Max uniform blocks " << unibl;
-
-	// Config
-	glEnable(GL_DEPTH_TEST);
-	glEnable(GL_CULL_FACE);
-	glClearColor( 0.f, 0.0f, 0.1f, 1.f );
-	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-
-	return success;
 }
 
 // void handleKeys( SDL_KeyboardEvent e, int x, int y )
@@ -320,7 +308,7 @@ bool initGL()
 
 void update()
 {
-	const Uint8* inputState = SDL_GetKeyboardState(NULL);
+	const Uint8* inputState = SDL_GetKeyboardState(nullptr);
 	if (inputState[SDL_SCANCODE_Q] || inputState[SDL_SCANCODE_ESCAPE]) {
 		gGameIsRunning = false;
 	}
@@ -370,37 +358,45 @@ void update()
 	}
 }
 
+
+
 void renderFrame()
 {
-	//Clear color buffer
-	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	
-	//Render quad
-	if( !gRenderQuad )
-		return;
+	gRenderer->initFrame();
 
 	float window_width = SDL_GetWindowSurface(gWindow)->w;
 	float window_height = SDL_GetWindowSurface(gWindow)->h;
 	float aspect = window_width / window_height;
 
-	glm::mat4 model = glm::mat4(1.0f);
-	//glm::mat4 mvp = projection * view * model;
+	Renderer::MeshRenderable meshJob;
 
-	gShaderProgram->use();
 
-	gShaderProgram->setUniform("u_viewMatrix", glm::value_ptr(gCamera.viewMatrix()));
-	gShaderProgram->setUniform("u_projectionMatrix", glm::value_ptr(gCamera.projectionMatrix(aspect)));
-	gShaderProgram->setUniform("u_modelMatrix", glm::value_ptr(model));
-	glm::mat4 normalmat = glm::transpose(glm::inverse(model));
-	gShaderProgram->setUniform("u_normalMatrix", glm::value_ptr(normalmat));
+	for (int i = 1; i < 21; i++) {
+		meshJob.orth = glm::translate(glm::mat4(1.0f), glm::vec3(i*10, 0,0));
+		meshJob.meshID = gCastleTiles[i]->meshID;
+		gRenderer->renderMesh(meshJob);
+	}
+	
 
-	//gShaderProgram.setUniform("u_useCelShading", GL_FALSE);
+	meshJob.meshID = gTileMap->meshID;
+	for (int i=0; i < 10; i++) {
+		for (int j = 0; j < 10; j++) {
+			for (int k = 0; k < 10; k++) {
+				meshJob.orth = glm::translate(glm::mat4(1.0f), glm::vec3(i*10, j*10, k*10));
+				gRenderer->renderMesh(meshJob);
+			}
+		}
+	}
 
-	//glDrawArrays(GL_TRIANGLES, 0, 3);
+	meshJob.meshID = gModelTileMap->meshID;
+	gRenderer->renderMesh(meshJob);
 
-	gTileMap->draw(*gShaderProgram);
-	gModelTileMap->draw(*gShaderProgram);
-	//gTetraMesh.draw(*gShaderProgram);
+	gRenderer->renderFrame(gCamera, aspect);
+
+	GLenum error = glGetError();
+	if (error != GL_NO_ERROR) {
+		std::cout << "GL error: " << error << std::endl;
+	}
 
 	//glUseProgram( 0 );
 }
@@ -409,15 +405,11 @@ void closeProgram()
 {
 	
 	//Deallocate program
-	if (gShaderProgram->ID != NULL) {
-		glDeleteProgram(gShaderProgram->ID);
-		delete gShaderProgram;
-	}
 
 	//Destroy window
 	if (gWindow != 0)	
 		SDL_DestroyWindow( gWindow );
-	gWindow = NULL;
+	gWindow = nullptr;
 
 	//Quit SDL subsystems
 	SDL_Quit();
@@ -426,11 +418,24 @@ void closeProgram()
 
 int main( int argc, char* args[] )
 {
-	setbuf(stdout, NULL);
-	//Start up SDL and create window
-	if( !init() )
+	setbuf(stdout, nullptr);
+
+	if(!init())
 	{
 		printf( "Failed to initialize!\n" );
+		closeProgram();
+		return 0;
+	}
+
+	bool success;
+	gRenderer = std::make_shared<Renderer::Renderer>(success, gVertexShaderFile, gFragmentShaderFile);
+	if (!success) {
+		std::cout << "Could not initialize Renderer!" << std::endl;
+		return false;
+	}
+
+	if (!initScene()) {
+		std::cout << "Initializing scene failed!" << std::endl;
 		closeProgram();
 		return 0;
 	}
@@ -459,7 +464,6 @@ int main( int argc, char* args[] )
 
         renderFrame();
 		SDL_GL_SwapWindow( gWindow );
-
 
 		SDL_Delay(20);
 	}

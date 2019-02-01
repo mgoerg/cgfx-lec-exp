@@ -1,6 +1,6 @@
 #version 330 core
 
-const int MAX_LIGHTS = 3;
+const int MAX_LIGHTS = 256;
 
 
 const int LIGHT_AMBIENT_BIT =       1 << 0;
@@ -21,9 +21,6 @@ struct LightSource
     float attenuationLin;
     float attenuationSq;
 };
-
-
-
 
 
 
