@@ -36,9 +36,9 @@ layout (std140) uniform LightBlock {
 uniform bool u_useCelShading;
 
 
-in vec3 v_position;
-in vec3 v_normal;
-in vec4 v_color;
+in vec3 f_position;
+in vec3 f_normal;
+in vec4 f_color;
 
 out vec4 FragColor;
 
@@ -54,7 +54,7 @@ void main(void) {
     vec3 resultColor = vec3(0, 0, 0);
     if (u_useLighting) {
         vec3 totalLight = vec3(0, 0, 0);
-        for (int i = 0; i < u_numLights; i++) {
+        for (int i = 0; i < u_numLights + 1; i++) {
             LightSource light = u_lightSource[i];
             
             if (((light.flags & LIGHT_ENABLED_BIT) == 0 ) || ((light.flags & LIGHT_VALID_BIT) == 0))
@@ -65,7 +65,7 @@ void main(void) {
                 totalLight += light.color;
             }
             
-            vec3 normal = normalize(v_normal);
+            vec3 normal = normalize(f_normal);
             
             // Directional
             if ((light.flags & LIGHT_DIRECTIONAL_BIT) != 0) {
@@ -78,7 +78,7 @@ void main(void) {
             
             // Point
             if ((light.flags & LIGHT_POINT_BIT) != 0) {                    
-                vec3 lightDirection = v_position - light.position;
+                vec3 lightDirection = f_position - light.position;
                 float dist = length(lightDirection);
                 lightDirection = normalize(lightDirection);
                 float nDotL = max(-dot(normal, lightDirection), 0.0);
@@ -118,9 +118,9 @@ void main(void) {
             totalLight = totalLight * (new_lightness / lightness);
         }
         
-        resultColor = v_color.rgb * totalLight;
+        resultColor = f_color.rgb * totalLight;
     } else {
-        resultColor = v_color.rgb;
+        resultColor = f_color.rgb;
         //resultColor = vec3(1.0, 0.0, 0.5);
     }
 
@@ -132,8 +132,14 @@ void main(void) {
     //	resultColor = vec3(r, g, b);
     //}
 
+    if (!u_useCelShading) {
+        resultColor.x += (rand(f_position.yz) - 0.5) / 256.0;
+        resultColor.y += (rand(f_position.xz) - 0.5) / 256.0;
+        resultColor.z += (rand(f_position.xy) - 0.5) / 256.0;
+    }
+
     FragColor = vec4(resultColor, 1.0);
     //if (int(gl_FragCoord[0]) /2*2 - int(gl_FragCoord[0]) == 0 || int(gl_FragCoord[1]) / 2 * 2 - int(gl_FragCoord[1]) == 0) {
-    //	gl_FragColor = vec4(v_position * 0.1, 1.0);
+    //	gl_FragColor = vec4(f_position * 0.1, 1.0);
     //}
 }

@@ -9,6 +9,12 @@ void utils::printGLerror(std::string text/*="GL Error: "*/) {
     }
 }
 
+int utils::clampInt(int v, int lowerBound, int upperBound) {
+    if (v < lowerBound) return lowerBound;
+    if (v > upperBound) return upperBound;
+    return v;
+}
+
 
 //Index 1==0b0001 => 0b1000
 //Index 7==0b0111 => 0b1110
@@ -81,7 +87,7 @@ int utils::cubeSymmetryToInt(glm::mat3 mat) {
         }
     }
     for (j = 0; j < 3; j++) {
-        if (glm::abs(mat[0][j]) > 0.5) {
+        if (glm::abs(mat[1][j]) > 0.5) {
             if ((j - i) % 3 == -1)
             perm += 1;
             if (mat[1][j] < 0) 
@@ -114,13 +120,27 @@ const glm::mat3 utils::i2cs[] = {
 int utils::cubeSymMult(int n, glm::mat3 mat) {
     return utils::cubeSymmetryToInt(utils::i2cs[n] * mat);
 }
-int cubeSymMult(glm::mat3 mat, int n) {
+int utils::cubeSymMult(glm::mat3 mat, int n) {
     return utils::cubeSymmetryToInt(mat * utils::i2cs[n]);
 }
-int cubeSymMult(glm::mat3 mat, glm::mat3 mat2) {
+int utils::cubeSymMult(glm::mat3 mat, glm::mat3 mat2) {
     return utils::cubeSymmetryToInt(mat * mat2);
 }
-int rotLZ(int n, int k) {
-    return utils::cubeSymMult(n, glm::mat4_cast(glm::angleAxis(k * glm::radians(90.0f * k), glm::vec3(0, 0, 1))));
+int utils::rotZ(int k) {
+    return utils::cubeSymmetryToInt(glm::mat3_cast(glm::angleAxis(glm::radians(90.0f * k), glm::vec3(0, 0, 1))));
 }
+
+
+float utils::norm(glm::mat4 mat) 
+{
+    float d = 0;
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            d += mat[i][j] * mat[i][j];
+        }
+    }
+    return d;
+}
+
+
 

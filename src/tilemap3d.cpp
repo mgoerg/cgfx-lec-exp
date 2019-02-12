@@ -2,46 +2,34 @@
 
 #include "tilemap3d.h"
 
-#include "assert.h"
-#include <vector>
-
 
 
 TileMap3d::TileMap3d(const std::vector<Tile> palette, int xSize, int ySize, int zSize) : \
-        xSize(xSize), \
-        ySize(ySize), \
-        zSize(zSize)
+        xSize(xSize), 
+        ySize(ySize), 
+        zSize(zSize), 
+        palette(palette)
 {
-    content = new unsigned int[xSize * ySize * zSize];
-    std::fill_n(content, xSize * ySize * zSize, 0); 
-    this->palette = palette;
+    content.resize(xSize * ySize * zSize);
 }
 
 
 TileMap3d::TileMap3d(const std::vector<Tile> palette, int xSize) : \
-        xSize(xSize), \
-        ySize(xSize), \
-        zSize(xSize)
+        xSize(xSize), 
+        ySize(xSize), 
+        zSize(xSize), 
+        palette(palette)
 {
-    content = new unsigned int[xSize * ySize * zSize];
-    std::fill_n(content, xSize * ySize * zSize, 0); 
+    content.resize(xSize * ySize * zSize);
     this->palette = palette;
 }
 
-TileMap3d::TileMap3d(const TileMap3d &other) : 
-        xSize(other.xSize), 
-        ySize(other.ySize), 
-        zSize(other.zSize), 
-        palette(other.palette), 
-        showBoundaries(other.showBoundaries)
-    {
-    content = new unsigned int[xSize * ySize * zSize];
-    memcpy(content, other.content, sizeof(unsigned int) * xSize * ySize * zSize);
+void TileMap3d::setPalette(const Palette palette) {
+    this->palette = palette;
 }
 
-
-TileMap3d::~TileMap3d() {
-    delete[] content;
+const Palette TileMap3d::getPalette() {
+    return this->palette;
 }
 
 int TileMap3d::index(int x, int y, int z) {
@@ -123,6 +111,13 @@ void TileMap3d::updateMesh()
                         Renderer::Vertex v3 = {
                             center + 0.5f * normal + 0.5f * tangent - 0.5f * bitangent, normal, color
                         };
+
+                        if (makeMeshCentered) {
+                            v0.position -= this->center();
+                            v1.position -= this->center();
+                            v2.position -= this->center();
+                            v3.position -= this->center();
+                        }
 
                         vertices.push_back(v0);
                         vertices.push_back(v1);
@@ -240,144 +235,3 @@ TileMap3d* createPaletteTileMap(std::vector<Tile> palette, int spacing, int widt
     }
 }
 
-
-
-
-
-
-
-// TileMap with non-fixed tile.
-
-
-
-
-template <typename T>
-TileMap3dT<T>::TileMap3dT(const std::vector<T> palette, int xSize, int ySize, int zSize) : \
-        xSize(xSize), \
-        ySize(ySize), \
-        zSize(zSize)
-{
-    content = new TileInfo[xSize * ySize * zSize];
-    std::fill_n(content, xSize * ySize * zSize, 0); 
-    this->palette = palette;
-}
-
-
-template <typename T>
-TileMap3dT<T>::TileMap3dT(const std::vector<T> palette, int xSize) : \
-        xSize(xSize), \
-        ySize(xSize), \
-        zSize(xSize)
-{
-    content = new TileInfo[xSize * ySize * zSize];
-    std::fill_n(content, xSize * ySize * zSize, 0); 
-    this->palette = palette;
-}
-
-template <typename T>
-TileMap3dT<T>::~TileMap3dT() {
-    delete[] content;
-}
-
-template <typename T>
-int TileMap3dT<T>::index(int x, int y, int z) {
-    x = x % xSize;
-    if (x < 0) x += xSize;
-    y = y % ySize;
-    if (y < 0) y += ySize;
-    z = z % zSize;
-    if (z < 0) z += zSize;
-    return x * ySize * zSize + y * zSize + z;
-}
-
-template <typename T>
-TileInfo TileMap3dT<T>::getRaw(int x, int y, int z) {
-    return content[index(x, y, z)];
-}
-
-
-template <typename T>
-TileInfo TileMap3dT<T>::getRaw(glm::ivec3 k) {
-    return getRaw(k.x, k.y, k.z);
-}
-
-template <typename T>
-unsigned short TileMap3dT<T>::get(int x, int y, int z) {
-    return content[index(x, y, z)].index;
-}
-
-template <typename T>
-unsigned short TileMap3dT<T>::get(glm::ivec3 k) {
-    return get(k.x, k.y, k.z);
-}
-
-
-template <typename T> 
-unsigned short TileMap3dT<T>::getRot(int x, int y, int z) {
-    return content[index(x, y, z)].rot;
-}
-
-
-template <typename T> 
-unsigned short TileMap3dT<T>::getRot(glm::ivec3 k) {
-    return get(k.x, k.y, k.z);
-}
-
-
-template <typename T>
-T* TileMap3dT<T>::getTile(int x, int y, int z) {
-    return &palette[get(x, y, z) - 1];
-}
-
-template <typename T>
-T* TileMap3dT<T>::getTile(glm::ivec3 k) {
-    return getTile(k.x, k.y, k.z);
-}
-
-
-
-template <typename T>
-void TileMap3dT<T>::setRaw(int x, int y, int z, TileInfo value) {
-    if (value.index >= palette.size()) {
-        throw std::invalid_argument( "Tile index " + std::to_string(value.index) + " out of range: 0 - " + std::to_string(palette.size()) );
-    }
-    content[index(x, y, z)] = value;
-}
-
-template <typename T>
-void TileMap3dT<T>::setRaw(glm::ivec3 k, TileInfo v) {
-    set(k.x, k.y, k.z, v);
-}
-
-template <typename T>
-void TileMap3dT<T>::set(int x, int y, int z, unsigned short v) {
-    if (v >= palette.size()) {
-        throw std::invalid_argument( "Tile index " + std::to_string(v) + " out of range: 0 - " + std::to_string(palette.size()) );
-    }
-    content[index(x, y, z)].index = v;
-}
-template <typename T>
-void TileMap3dT<T>::set(glm::ivec3 k, unsigned short v) {
-    this->set(k.x, k.y, k.z, v);
-}
-
-template <typename T>
-void TileMap3dT<T>::draw(ShaderProgram& shaderProgram, glm::mat4 transform/* = glm::mat4(1.0f)*/) {
-    for (int x = 0; x < xSize; x++) {
-        for (int y = 0; y < ySize; y++) {
-            for (int z = 0; z < zSize; z++) {
-                glm::mat4 model = glm::mat4(1.0f);
-                T* tile = get(x, y, z);
-                // glm::mat<3, 3, int, glm::mediump> mat;
-
-                glm::translate(model, glm::vec3(x, y, z));
-                model = model * transform;
-                
-                shaderProgram.setUniform("u_modelMatrix", glm::value_ptr(model));
-                glm::mat4 normalmat = glm::transpose(glm::inverse(model));
-                shaderProgram.setUniform("u_normalMatrix", glm::value_ptr(normalmat));
-                tile->draw(shaderProgram);
-            }
-        }
-    }
-}

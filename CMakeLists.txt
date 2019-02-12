@@ -10,24 +10,32 @@ file(COPY glew32.dll SDL2.dll DESTINATION .)
 
 #ls src/*.h -1
 add_executable(xyz
+    src/camera.cpp
+    src/importMagicaVoxel.cpp
     src/lightsource.cpp
     src/main.cpp
     src/mesh.cpp
+    src/renderer.cpp
     src/shader.cpp
     src/tilemap3d.cpp
-    src/camera.cpp
-    src/importMagicaVoxel.cpp
     src/utils.cpp
-    src/renderer.cpp
+    src/transform.cpp
+    src/node.cpp
+    src/entity.cpp
 
+    src/camera.h
+    src/game.h
+    src/importMagicaVoxel.h
     src/lightsource.h
     src/mesh.h
+    src/renderer.h
     src/shader.h
     src/tilemap3d.h
-    src/camera.h
-    src/importMagicaVoxel.h
+    src/transform.h
     src/utils.h
-    src/renderer.h
+    src/rendercomponent.h
+    src/node.h
+    src/entity.h
 )
 
 target_link_libraries(xyz PRIVATE
@@ -43,6 +51,7 @@ target_include_directories(xyz PRIVATE
     /c/mingw_dev_lib/glew/include 
 	/usr/include 
 	src 
+    src/entt/src/entt
 )
 
 # -Wl,-subsystem,windows gets rid of the console window 
@@ -54,8 +63,12 @@ target_compile_options(xyz PRIVATE
     -Wall
     -Wextra
     -O2
+    -std=c++17
     #-Wl,-subsystem,windows 
 )
+
+set_source_files_properties(foo.cpp PROPERTIES COMPILE_FLAGS -Wno-effc++)
+
 
 target_link_directories(xyz PRIVATE
     /c/mingw_dev_lib/sdl/lib

@@ -51,6 +51,8 @@ GLuint ShaderProgram::shader(const int shaderType, const std::string &filename, 
                 shaderTypeString = "vertex"; break;
             case GL_FRAGMENT_SHADER:
                 shaderTypeString = "fragment"; break;
+			case GL_GEOMETRY_SHADER:
+				shaderTypeString = "geometry"; break;
             default:
                 shaderTypeString = "other";
         }

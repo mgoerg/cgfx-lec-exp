@@ -16,6 +16,8 @@ namespace utils {
 
 void printGLerror(std::string text="GL Error: ");
 
+int clampInt(int v, int lowerBound, int upperBound);
+
 
 //Index 1==0b0001 => 0b1000
 //Index 7==0b0111 => 0b1110
@@ -58,7 +60,9 @@ extern const glm::mat3 i2cs[];
 int cubeSymMult(int n, glm::mat3 mat);
 int cubeSymMult(glm::mat3 mat, int n);
 int cubeSymMult(glm::mat3 mat, glm::mat3 mat2);
-int rotLZ(int n, int k);
+int rotZ(int k);
+
+float norm(glm::mat4 mat);
 
 }
 #endif // UTILS_H

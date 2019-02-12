@@ -1,0 +1,6 @@
+[submodule "src/ECS"]
+	path = src/ECS
+	url = https://github.com/redxdev/ECS
+[submodule "src/entt"]
+	path = src/entt
+	url = https://github.com/skypjack/entt
