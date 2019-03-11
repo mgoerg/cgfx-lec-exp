@@ -60,8 +60,6 @@ public:
         //this->textures = textures;
     }
     ~Mesh() {
-        std::cout << "MESH DESTROYED" << std::endl;
-        // TODO
         glDeleteBuffers(1, &VBO);
         glDeleteBuffers(1, &EBO);
         glDeleteVertexArrays(1, &VAO);

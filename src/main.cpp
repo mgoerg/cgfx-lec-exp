@@ -805,8 +805,5 @@ int main( int argc, char* args[] )
 	
 	closeProgram();
 
-	std::string foo;
-	std::cin >> foo;
-
 	return 0;
 }
