@@ -47,8 +47,7 @@ target_link_libraries(xyz PRIVATE
 )
 
 target_include_directories(xyz PRIVATE
-    /c/mingw_dev_lib/sdl/include
-    /c/mingw_dev_lib/glew/include 
+    /c/msys64/mingw32/include
 	/usr/include 
 	src 
     src/entt/src/entt
@@ -71,7 +70,5 @@ set_source_files_properties(foo.cpp PROPERTIES COMPILE_FLAGS -Wno-effc++)
 
 
 target_link_directories(xyz PRIVATE
-    /c/mingw_dev_lib/sdl/lib
-	/c/mingw_dev_lib/glew/lib/Release/Win32
-	/c/mingw_dev_lib/glew/bin/Release/Win32
+    /c/msys64/mingw32/lib/
 )

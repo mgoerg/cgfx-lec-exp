@@ -268,7 +268,6 @@ void TileMap3dT<T>::setRot(glm::ivec3 k, unsigned short rot) {
 template <class T>
 std::vector<MeshRenderObject> TileMap3dT<T>::getRenderables() {
     if (needMeshUpdate) {
-        std::cout << "HI";
         meshes = std::vector<MeshRenderObject>();
         for (int x = 0; x < xSize; x++) {
             for (int y = 0; y < ySize; y++) {
@@ -278,16 +277,16 @@ std::vector<MeshRenderObject> TileMap3dT<T>::getRenderables() {
                     T* tile = getTile(x, y, z);
                     auto rot = getRot(x, y, z);
                     auto rot_quat = glm::quat_cast(utils::i2cs[rot]);
-                    for (int i = 0; i < 4; i++) {
-                        std::cout << rot_quat[0] << ", " << rot_quat[1];
-                    }
+                    // for (int i = 0; i < 4; i++) {
+                    //     std::cout << rot_quat[0] << ", " << rot_quat[1];
+                    // }
 
                     if (tile->meshID == 0) {
                         tile->updateMesh();
                     }
-                    std::cout << tile->meshID;
                     meshInstance.meshID = tile->meshID;
-                    meshInstance.transform = Transform(glm::vec3(x * tile_size, y * tile_size, z * tile_size), rot_quat);
+                   // meshInstance.transform = Transform(glm::vec3(x * tile_size, y * tile_size, z * tile_size), rot_quat);
+                    meshInstance.transform = Transform(glm::vec3(x * tile_size, y * tile_size, z * tile_size));
                     meshes.emplace_back(meshInstance);
                 }
             }

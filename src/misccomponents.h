@@ -10,30 +10,68 @@
 
 #include "entity.h"
 #include "transform.h"
+#include <cassert>
 
 
 
 // Impact
 ///////////////////////////////////////////////////////////
 enum ImpactAnimationType {
-    looping,
-    once
+    IMPACT_LOOPING
 };
 
 struct ImpactAnimationKeyFrame {
     glm::vec3 position;
     float intensity = 1.0;
     float distance = 0.0;
-    float width = 10.0;
+    float duration = 1.0;
 };
 
 struct SimpleImpactAnimation {
-    ImpactAnimationType animationType;
-    float t;
+    ImpactAnimationType animationType = IMPACT_LOOPING;
+    float t = 0;
     std::vector<ImpactAnimationKeyFrame> keyFrames;
+    glm::vec3 direction = glm::vec3(0, 0, 1);
+    float width = 10;
 };
 
-void updateKeyFrame(World world, Entity entity, float dt);
+void updateImpactAnim(SimpleImpactAnimation& anim, float dt) {
+    anim.t += dt;
+    float animLength = 0;
+    for (int i = 0; i < anim.keyFrames.size() - 1; i++) {
+        animLength += anim.keyFrames[i].duration;
+    }
+
+    assert(animLength > 0);
+
+    while (anim.t > animLength) {
+        anim.t -= animLength;
+    }
+}
+
+Renderer::ImpactSource getImpactFromAnimation(SimpleImpactAnimation& anim) {
+    int index = 0;
+    float u = 0;
+    for (auto kf : anim.keyFrames) {
+        u += kf.duration;
+        if (anim.t < u) { break; }
+        index++;
+    }
+
+    auto currentKeyFrame = anim.keyFrames[index];
+    auto nextKeyFrame = anim.keyFrames[(index + 1) % anim.keyFrames.size()];
+    float t = (u - anim.t) / currentKeyFrame.duration;
+    Renderer::ImpactSourceData resultData;
+    glm::vec3 pos = t* currentKeyFrame.position + (1-t) * nextKeyFrame.position;
+    for (int i = 0; i < 3; i++) {
+        resultData.position[i] = pos[i];
+        resultData.direction[i] = anim.direction[i];
+    }
+    resultData.intensity = t*currentKeyFrame.intensity + (1-t) * nextKeyFrame.intensity;
+    resultData.distance = t*currentKeyFrame.distance + (1-t)*nextKeyFrame.distance;
+    resultData.width = anim.width;
+    return Renderer::ImpactSource(resultData, Transform(pos));
+}
 
 
 // Simple Patrol 

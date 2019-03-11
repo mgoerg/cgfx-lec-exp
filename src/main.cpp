@@ -40,8 +40,11 @@
 #include "utils.h"
 
 //Screen dimension constants
-const int SCREEN_WIDTH = 640;
-const int SCREEN_HEIGHT = 480;
+// const int SCREEN_WIDTH = 640;
+// const int SCREEN_HEIGHT = 480;
+
+const int SCREEN_WIDTH = 1024;
+const int SCREEN_HEIGHT = 800;
 
 
 //Starts up SDL, creates window, and initializes OpenGL
@@ -76,7 +79,7 @@ std::string g_geometryShaderFile = "data/shader/geometry.glsl";
 
 const char* g_teapotFile = "data/model/monu1.vox";
 const char* gCastleTileMapFile = "data/model/mycastle.vox";
-const char* g_pacmanTerrainFile = "data/model/pacman_walls.vox";
+const char* g_pacmanTerrainFile = "data/model/pacman_walls2.vox";
 
 
 //Mesh gTetraMesh;
@@ -112,6 +115,7 @@ const char pacman_map_string[] = ""
 "#.####.##.########.##.####.#"
 "#......##....##....##......#"
 "######.##### ## #####.######"
+"######.##### ## #####.######"
 "######.##          ##.######"
 "######.## ##----## ##.######"
 "######.## #      # ##.######"
@@ -131,15 +135,16 @@ const char pacman_map_string[] = ""
 "#.##########.##.##########.#"
 "#..........................#"
 "############################";
-const int pacman_map_size = 28;
-const int pacman_map_boundary = 5;
-const int full_width = 2 * pacman_map_boundary + pacman_map_size;
-const int full_height = 2 * pacman_map_boundary + pacman_map_size;
+const int pacman_map_width = 28;
+const int pacman_map_height = 30;
+const int pacman_map_boundary = 3;
+const int full_width = 2 * pacman_map_boundary + pacman_map_width;
+const int full_height = 2 * pacman_map_boundary + pacman_map_height;
 int pacman_map[full_width * full_height];
 
 int get_tilemap_value (int x, int y) {
-	x = utils::clampInt(x, 0, full_width);
-	y = utils::clampInt(y, 0, full_height);
+	x = utils::clampInt(x, 0, full_width - 1);
+	y = utils::clampInt(y, 0, full_height - 1);
 	return pacman_map[y + x * full_width];
 }
 
@@ -218,9 +223,9 @@ bool setupMap() {
 	for (int i = 0; i < full_width; i++) {
 		for (int j = 0; j < full_height; j++) {
 
-			int x = utils::clampInt(i - pacman_map_boundary, 0, pacman_map_size);
-			int y = utils::clampInt(j - pacman_map_boundary, 0, pacman_map_size);
-			int value = pacman_map_string[x + y * pacman_map_size];
+			int x = utils::clampInt(i - pacman_map_boundary, 0, pacman_map_width-1);
+			int y = utils::clampInt(j - pacman_map_boundary, 0, pacman_map_height-1);
+			char value = pacman_map_string[x + y * pacman_map_width];
 
 			int index = j + i * full_width;
 
@@ -256,13 +261,16 @@ bool setupMap() {
 	palette.push_back(*(terrain_models[1])); // Straight
 	palette.push_back(*(terrain_models[0])); // Corner
 	palette.push_back(*(terrain_models[2])); // Full
+	palette.push_back(*(terrain_models[3])); // Ground
 
 	auto map_entity = g_world.create();
 	auto& terrain = g_world.assign<TileMap3dT<TileMap3d>>(map_entity, palette, full_width, full_height, 2);
 
-	terrain.tile_size = 20;
+	terrain.tile_size = 6;
 	for (int x = 0; x < full_width; x++) {
 		for (int y = 0; y < full_height; y++) {
+			terrain.set(x, y, 0, 4);
+
 			int tile_val = get_tilemap_value(x, y);
 			if (tile_val == 1) {
 				// Set Terrain tile
@@ -294,6 +302,15 @@ bool setupMap() {
 				else if (get_tilemap_value(x, y+1) != 1) {
 					terrain.set(x, y, 1, 1);
 					terrain.setRot(x, y, 1, utils::rotZ(3));
+				// Inner corner
+				} else if (get_tilemap_value(x + 1, y + 1) != 1) {
+					terrain.set(x, y, 1, 2);
+				} else if (get_tilemap_value(x + 1, y - 1) != 1) {
+					terrain.set(x, y, 1, 2);
+				} else if (get_tilemap_value(x - 1, y - 1) != 1) {
+					terrain.set(x, y, 1, 2);
+				} else if (get_tilemap_value(x - 1, y + 1) != 1) {
+					terrain.set(x, y, 1, 2);
 				} else {
 					terrain.set(x, y, 1, 3);
 				}
@@ -333,16 +350,17 @@ bool initScene()
 	auto& renderComponent = g_world.assign<RenderComponent>(teapot);
 	MeshRenderObject mesh;
 	mesh.meshID = g_teaPotTileMap->meshID;
-	std::cout << g_teaPotTileMap->meshID;
+	mesh.enabled = false;
 	renderComponent.meshes.emplace_back(mesh);
 	auto& tr = g_world.assign<Transform>(teapot);
 
-	//setupMap();
+	setupMap();
 
 	gCamera.fov = glm::radians(45.f);
 	gCamera.near = 0.1f;
 	gCamera.far = 10000;
 	gCamera.eyePosition = {0, 0, 0};
+	gCamera.eyePosition = glm::vec3(100, 0, 30);
 
 	Palette palette = {
 		{glm::vec4()}, 
@@ -433,48 +451,60 @@ bool initScene()
 	// mesh_.meshID = g_axisTileMap->meshID;
 	// render.meshes.push_back(mesh_);
 
-	glm::vec3 offsets[] = {
-		// 1
-		{20, 0, 0},
-		{20, -40, 0},
-		{10, -40, 30},
-		// 2
-		{ 30, -30, -30},
-		{ 30, -30, 30}, 
-		{ 30, -20, 5},
-		// 3
-		{10, -40, -30},
-		{30, -5, -5},
-		{10, -40, 30}
+	// glm::vec3 offsets[] = {
+	// 	// 1
+	// 	{20, 0, 0},
+	// 	{20, -40, 0},
+	// 	{10, -40, 30},
+	// 	// 2
+	// 	{ 30, -30, -30},
+	// 	{ 30, -30, 30}, 
+	// 	{ 30, -20, 5},
+	// 	// 3
+	// 	{10, -40, -30},
+	// 	{30, -5, -5},
+	// 	{10, -40, 30}
+	// };
+	glm::vec3 position[] = {
+		{40, 60, 5},
+		{40, 120, 5},
+		{80, 60, 5}
+	};
+	float distance[] = {
+		50, 50, 50
+	};
+	float width[] = {
+		5, 3, 10
 	};
 
-	glm::vec3 colors[] = {
-		glm::vec3(1.0, 1.0, 0.2),
-		glm::vec3(0.1333, 0.9529, 0.0588),
-		glm::vec3(0.8706, 0.6157, 0.3255),
-	};
 	for (int i = 0; i < 3; i++) {
-		Entity floatyLight = g_world.create();
-		auto& ftlgtrender = g_world.assign<RenderComponent>(floatyLight);
-		auto pointLight = Renderer::pointLightSource(glm::vec3(), colors[i], 1.0, 1.0, 0.1, 0.0);
-		ftlgtrender.lights.emplace_back(pointLight);
+		Entity impactEntity = g_world.create();
+		auto& ftlgtrender = g_world.assign<RenderComponent>(impactEntity);
 		MeshRenderObject cubeMesh;
 		cubeMesh.meshID = g_cubeTileMap->meshID;
-		cubeMesh.enableLighting = false;
+		cubeMesh.enableImpact = false;
 		ftlgtrender.meshes.emplace_back(cubeMesh);
-		g_world.assign<Transform>(floatyLight);
-		auto& ftlgtpatrol = g_world.assign<SimplePatrolBehavior>(floatyLight);
-		Transform pt2;
-		// ftlgtpatrol.patrolType = PATROL_ALTERNATE;
-		for (int k = 0; k < 3; k++) {
-			pt2.position = offsets[i*3 + k];
-			ftlgtpatrol.routePoints.push_back(pt2);
-		}
-		ftlgtpatrol.velocity = 10.0;
+		g_world.assign<Transform>(impactEntity);
+
+		auto& impactAnim = g_world.assign<SimpleImpactAnimation>(impactEntity);
+		ImpactAnimationKeyFrame frame1;
+		frame1.position = position[i];
+		frame1.duration = 0.5;
+		frame1.intensity = 3;
+
+		ImpactAnimationKeyFrame frame2;
+		frame2.position = position[i];
+		frame2.distance = distance[i];
+		frame2.duration = 0.5;
+		frame2.intensity = 0;
+
+		impactAnim.width = width[i];
+		impactAnim.keyFrames.push_back(frame1);
+		impactAnim.keyFrames.push_back(frame2);
 	}
 
 	g_lights.emplace_back(Renderer::ambientLightSource(glm::vec3(0.3, 0.3, 0.3)));
-	//g_lights.emplace_back(Renderer::directionLightSource(glm::vec3(1.0, 2.0, 3.0), glm::vec3(1.0, 1.0, 1.0), 0.3));
+	g_lights.emplace_back(Renderer::directionLightSource(glm::vec3(1.0, 2.0, 3.0), glm::vec3(1.0, 1.0, 1.0), 0.3));
 
 	// const int num = 25;
 	// int foo[num];
@@ -574,16 +604,8 @@ void update(float dt)
     g_world.view<Transform, SimplePatrolBehavior>().each([dt](const auto, auto &transform, auto &patrol) {
 		updatePatrolBehavior(transform, patrol, dt);
     });
-
-	g_world.view<RenderComponent>().each([dt] (const auto, auto& render) {
-		if (render.impacts.size() > 0) {
-			for (auto& impact : render.impacts) {
-				impact.setDistance(impact.getDistance() + dt * 80.0);
-				if ( impact.getDistance() > 200) {
-					impact.setDistance(0);
-				}
-			}
-		}
+	g_world.view<SimpleImpactAnimation>().each([dt] (const auto, auto& anim) {
+		updateImpactAnim(anim, dt);
 	});
 }
 
@@ -608,6 +630,11 @@ void renderFrame()
 	for(auto& light: g_lights) {
 		gRenderer->renderLightSource(light.getDataStruct());
 	}
+
+	g_world.view<SimpleImpactAnimation>().each([] (const auto, auto& anim) {
+		auto impact = getImpactFromAnimation(anim);
+		gRenderer->renderImpactSource(impact.getDataStruct());
+	});
 
 	auto lights = std::chrono::high_resolution_clock::now();
 	// // std::cout << "Render Lights: " << (lights - start).count() / 1000 << std::endl;
